@@ -44,16 +44,17 @@ From discovery (2026-08-31), decided unless overridden:
   Raspberry Pi OS image URLs + sha256, overridable via config. No more
   `raspios_lite_armhf_latest` + unpinned CustomPiOS default branch.
 
-Proposed, awaiting user approval:
-- P1: Base all work on `devel` (17 commits ahead of the currently checked-out detached
-  HEAD `0.14.0`; `devel` is the PR target and contains e2e + Chromium policy work).
-  Create a feature branch from `devel`.
-- P2: Default (no-variant) build becomes **arm64 standard**; `armhf`, `docker`
-  (arm64+Docker) and `armhf-docker` become variants. Alternative: keep default=armhf
-  for continuity and add arm64 variants — rejected as it contradicts "primary target
-  is arm64", but flag-able.
-- P3: Artifact naming `FullPageOS-<debian_codename>-<arch>[-docker]-<version>.img.gz`
-  (e.g. `FullPageOS-trixie-arm64-0.15.0.img.gz`).
+Decided by user 2026-09-01 (former proposals P1–P3):
+- D7 (P1, modified): Work stays on branch `dev64`, based on tag 0.14.0 (6e773cc).
+  This fork is for the user's own use — merging into upstream `devel` is NOT a goal;
+  do not rebase onto `devel`. (devel's 17 extra commits — e2e tests, Chromium
+  translate policy — are intentionally not included.)
+- D8 (P2, as proposed): Default (no-variant) build = **arm64 standard**; `armhf`,
+  `docker` (arm64+Docker) and `armhf-docker` are variants.
+- D9 (P3, as proposed): Artifact naming
+  `FullPageOS-<debian_codename>-<arch>[-docker]-<version>.img.gz`
+  (e.g. `FullPageOS-trixie-arm64-0.15.0.img.gz`), derived from the build's own
+  arch/variant variables.
 
 ## Build matrix
 
@@ -78,11 +79,12 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
     shellcheck/bash -n baseline. DONE — see work log.
 
 - [ ] FPOS-002: Branch base and repo hygiene
-  - Scope: get user decision on P1; create feature branch from agreed base; confirm
-    untracked local files (`node_modules/`, `package.json`, lockfiles, `.idea`,
-    `graphify-out/`, dotfiles) stay untouched and out of commits.
-  - Acceptance criteria: working branch exists from approved base; `git status` shows
-    only intended changes; no destructive git operations used.
+  - Scope: P1 decided → D7 (stay on `dev64`, 0.14.0 base, no upstream merge). Remaining:
+    confirm `dev64` hygiene — untracked local files (`node_modules/`, `package.json`,
+    lockfiles, `.idea`, `graphify-out/`, dotfiles) stay untouched and out of commits;
+    decide whether AGENTS.md/CLAUDE.md/TODO.md get committed to dev64.
+  - Acceptance criteria: on `dev64` (0.14.0 base per D7); `git status` shows only
+    intended changes; no destructive git operations used.
   - Expected verification: `git branch --show-current`, `git log -1`, `git status`.
 
 - [ ] FPOS-003: Configurable, pinned base-image selection
@@ -313,10 +315,35 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   Mitigation: verified key facts via search (BASE_ARCH=arm64 support, module system,
   docker-module deficiencies); ask user to allow GitHub egress OR verify module
   internals via CI logs. Not blocking planning; blocks parts of FPOS-008 evidence.
-- B3 (decision): P1 (base on `devel`) needs user approval before FPOS-002 — currently
-  on detached HEAD at tag 0.14.0.
+- B3 — RESOLVED 2026-09-01: `dev64` was found to be branched from 6e773cc (tag
+  0.14.0), not `devel`. User decided this is intentional (personal fork, no upstream
+  merge) → D7. FPOS-002 unblocked.
 
 ## Work log
+
+### 2026-09-01 — Process: mission brief codified into AGENTS.md (no FPOS item)
+
+Summary: User supplied the full mission brief/working-method prompt. Updated
+AGENTS.md (untracked, with CLAUDE.md → @AGENTS.md) to encode it: one atomic TODO
+item per turn with start/end-of-turn protocol, task-state markers ([ ]/[~]/[x]/[!],
+max one [~]), never commit unless explicitly asked, graphify-then-verify-against-
+source rule, layered testing expectations, Docker-variant conventions (official
+repo/keyrings/Signed-By/5 packages/version pin, services enabled only in variant,
+bounded local logging via merged daemon.json, no docker group for kiosk user,
+runtime capability checks over assumptions, no blind cgroup-v1 flags), kiosk
+readiness constraints (check_for_httpd bypass, no eval, bounded timeouts, no
+duplicate Chromium), docs/example rules (non-deployed Compose example, docker
+login post-install), and security rules. Brief is consistent with existing
+D1–D6/FPOS plan — no task-list changes needed.
+
+Files changed: AGENTS.md (rewritten), TODO.md (this entry, decisions, B3, FPOS-002).
+Commands run: git log/branch/merge-base — found `dev64` was branched from 6e773cc
+(tag 0.14.0), not `devel`; asked user.
+Decisions (user, same day): P1→D7 modified — stay on `dev64`/0.14.0, personal fork,
+no upstream merge, no rebase onto devel; P2→D8 arm64 default approved; P3→D9 naming
+scheme approved. B3 resolved. AGENTS.md branch rule updated to match D7.
+Remaining risks: B1/B2 unchanged. D7 means upstream devel fixes (e2e, Chromium
+translate policy) are not in this line; cherry-pick individually later if wanted.
 
 ### 2026-08-31 — FPOS-001: Repository and architecture audit (discovery) — COMPLETE
 
