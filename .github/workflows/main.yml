@@ -21,8 +21,15 @@ jobs:
         repository: ${{ github.repository }}
         path: repository
         submodules: true
-    - name: Download Raspbian Image
-      run: cd repository/src/image && wget -q -c --trust-server-names 'https://downloads.raspberrypi.org/raspios_lite_armhf_latest'
+    # Pinned dated release + sha256 from src/config (D6) — no *_latest.
+    # Arch matrix (arm64/armhf) lands with FPOS-010; until then this
+    # builds the current default (armhf).
+    - name: Download Raspberry Pi OS image (pinned)
+      run: |
+        cd repository/src/image || exit 1
+        source ../config
+        wget -q "$FULLPAGEOS_IMAGE_URL_ARMHF"
+        echo "$FULLPAGEOS_IMAGE_SHA256_ARMHF  $(basename "$FULLPAGEOS_IMAGE_URL_ARMHF")" | sha256sum -c
     - name: Update CustomPiOS Paths
       run: cd repository/src && ../../CustomPiOS/src/update-custompios-paths
     - name: Build Image

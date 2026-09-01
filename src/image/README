@@ -1,5 +1,23 @@
-Place zipped Rasbian image here.
+Place the Raspberry Pi OS Lite base image (.img.xz) to build from here.
 
-If not otherwise specified, the build script will always use the most
-recent zip file matching the file name pattern "*-raspbian.zip" located
-here.
+FullPageOS builds on Raspberry Pi OS Lite, Debian 13 "Trixie". The pinned
+release URLs and sha256 checksums per architecture are defined in
+src/config (FULLPAGEOS_IMAGE_URL_ARM64 / FULLPAGEOS_IMAGE_URL_ARMHF and
+FULLPAGEOS_IMAGE_SHA256_*). Download the image for the architecture you
+are building and verify it, e.g.:
+
+    cd src/image
+    source ../config
+    wget "$FULLPAGEOS_IMAGE_URL_ARM64"
+    echo "$FULLPAGEOS_IMAGE_SHA256_ARM64  $(basename "$FULLPAGEOS_IMAGE_URL_ARM64")" | sha256sum -c
+
+(Use the _ARMHF variables for a 32-bit build. The official checksum is
+also published next to each image as <image-url>.sha256.)
+
+If not otherwise specified, CustomPiOS uses the most recent Raspberry Pi
+OS file matching *-raspios*.{zip,7z,xz} in this directory, so keep only
+the image for the architecture you are building — or set BASE_ZIP_IMG
+(via src/config.local or the environment) to the exact file to use.
+
+Always pin a dated release plus its sha256; never build from an undated
+*_latest download.

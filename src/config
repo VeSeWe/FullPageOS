@@ -2,6 +2,16 @@ export DIST_NAME=FullpageOS
 export DIST_VERSION=0.14.0
 export MODULES="base(raspicam, network, disable-services(gui(fullpageos), usage-statistics))"
 
+# Pinned base images (D6): dated Raspberry Pi OS Lite (Debian 13 "Trixie")
+# releases with sha256 of the .img.xz — never an undated *_latest alias.
+# CI downloads and verifies against these; for local builds see
+# src/image/README. Official checksum lives next to each image as
+# <image-url>.sha256. Override per build via src/config.local if needed.
+export FULLPAGEOS_IMAGE_URL_ARM64=https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2025-12-04/2025-12-04-raspios-trixie-arm64-lite.img.xz
+export FULLPAGEOS_IMAGE_SHA256_ARM64=681a775e20b53a9e4c7341d748a5a8cdc822039d8c67c1fd6ca35927abbe6290
+export FULLPAGEOS_IMAGE_URL_ARMHF=https://downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2025-12-04/2025-12-04-raspios-trixie-armhf-lite.img.xz
+export FULLPAGEOS_IMAGE_SHA256_ARMHF=1b3e49b67b15050a9f20a60267c145e6d468dc9559dd9cd945130a11401a49ff
+
 # if set will enlarge root parition prior to build by provided size in MB
 export BASE_IMAGE_ENLARGEROOT=2000
 

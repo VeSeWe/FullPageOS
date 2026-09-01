@@ -74,8 +74,11 @@ At the end of every turn:
 2. Update `TODO.md`: status, files changed, decisions made, commands/tests
    run, results, remaining risks or blockers.
 3. Mark the item complete only when its acceptance criteria pass.
-4. Do not begin another item.
-5. Stop and wait for the user to say `continue`.
+4. **Always** provide a short commit message after every completed task,
+   covering that turn's changes (the user commits it themselves — never
+   commit unless explicitly asked).
+5. Do not begin another item.
+6. Stop and wait for the user to say `continue`.
 
 Task states in TODO.md: `[ ]` not started, `[~]` the one current task (never
 more than one), `[x]` completed and verified, `[!]` blocked.

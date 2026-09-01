@@ -78,7 +78,7 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   - Expected verification: file inspection, graphify graph vs source cross-check,
     shellcheck/bash -n baseline. DONE — see work log.
 
-- [ ] FPOS-002: Branch base and repo hygiene
+- [x] FPOS-002: Branch base and repo hygiene
   - Scope: P1 decided → D7 (stay on `dev64`, 0.14.0 base, no upstream merge). Remaining:
     confirm `dev64` hygiene — untracked local files (`node_modules/`, `package.json`,
     lockfiles, `.idea`, `graphify-out/`, dotfiles) stay untouched and out of commits;
@@ -86,8 +86,11 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   - Acceptance criteria: on `dev64` (0.14.0 base per D7); `git status` shows only
     intended changes; no destructive git operations used.
   - Expected verification: `git branch --show-current`, `git log -1`, `git status`.
+    DONE — see work log 2026-09-01.
 
-- [ ] FPOS-003: Configurable, pinned base-image selection
+- [x] FPOS-003: Configurable, pinned base-image selection — DONE, see work
+  log 2026-09-01. (Note: the override variable is `BASE_ZIP_IMG`, not
+  `ZIP_IMG` — old README wording was stale.)
   - Scope: add config knobs (e.g. in `src/config` + documented `config.local`
     overrides) for base image URL/filename + sha256 per arch; update `src/image/README`
     (currently says "Rasbian" and `*-raspbian.zip`); document `ZIP_IMG` override;
@@ -320,6 +323,85 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   merge) → D7. FPOS-002 unblocked.
 
 ## Work log
+
+### 2026-09-01 — FPOS-003: Configurable, pinned base-image selection — COMPLETE
+
+Summary: `src/config` now exports pinned per-arch base-image knobs
+(`FULLPAGEOS_IMAGE_URL_ARM64/_ARMHF` + `FULLPAGEOS_IMAGE_SHA256_ARM64/_ARMHF`),
+defaulting to the dated Raspberry Pi OS Lite Trixie release **2025-12-04**
+(.img.xz URLs on downloads.raspberrypi.com + sha256 of the compressed file).
+`src/image/README` rewritten (was "Rasbian"/`*-raspbian.zip`): download+verify
+snippet, arch selection, `BASE_ZIP_IMG` exact-file override, no-`*_latest`
+rule. README.rst: requirement line and build snippet now use the pinned vars
+with a `sha256sum -c` step; the config.local paragraph fixed (`ZIP_IMG`→
+`BASE_ZIP_IMG` — verified real variable name in CustomPiOS devel base module;
+also removed leftover upstream "OctoPi" mention; default glob is
+`*-{raspbian,raspios}*.{zip,7z,xz}`, newest wins → docs say keep only one
+image). CI `main.yml`: "Download Raspbian Image" step (mutable
+`raspios_lite_armhf_latest`) replaced by pinned URL + `sha256sum -c` sourced
+from src/config — armhf (current default build) until the FPOS-010 matrix;
+extracted `2025-12-04-raspios-trixie-armhf-lite.img` still matches the
+existing `*-raspios-*-lite.img` copy glob. Full CI rework remains FPOS-010.
+
+Evidence for pinned values (GitHub/downloads.raspberrypi.com egress blocked —
+B2 — so verified via WebSearch): arm64 sha256
+`681a775e…abbe6290` confirmed by 3 independent sources (geekfarm build notes,
+rpi-imager debug log in raspberrypi/rpi-imager#1385 incl. official metadata
+`release_date 2025-12-04`, Kuketz forum quoting raspberrypi.com). armhf sha256
+`1b3e49b6…401a49ff` is **single-source** (geekfarm blog) — acceptable because
+CI's `sha256sum -c` fails loudly on mismatch at first download; recheck at
+FPOS-010's first CI run against the official `<image-url>.sha256`. Newer
+dated releases exist (e.g. 2026-04-13 Trixie); staying on 2025-12-04 because
+its checksums are verifiable from here — bumping the pin is a two-line change.
+CustomPiOS override semantics verified via search of guysoft/CustomPiOS devel
+(`src/modules/base/config`, `src/custompios`): `BASE_ZIP_IMG` honored if
+pre-set (config.local/env), may point at `.img` directly; else newest match in
+`BASE_IMAGE_PATH` (default `${DIST_PATH}/image`) wins.
+
+Files changed: `src/config`, `src/image/README`, `README.rst`,
+`.github/workflows/main.yml`, `TODO.md`.
+Commands/tests run: bash harness sourcing src/config → PASS (all 4 vars
+exported, URLs dated-Trixie-img.xz, sha256 64-hex, no "latest"); `bash -n` +
+`shellcheck -s bash src/config` → clean; snippet mechanics test (dummy file,
+`echo "<sha>  <file>" | sha256sum -c`) → OK; workflow YAML parsed with yq
+(step list intact); shellcheck on the new inline CI script → clean after
+SC2164 fix (`cd … || exit 1`; SC1091 info = sourced file not followed,
+expected); `git grep -iE 'raspios_lite_armhf_latest|_latest|raspbian|rasbian|ZIP_IMG'`
+→ only prohibition comments, BASE_ZIP_IMG docs, general README.rst prose
+(lines 9/69/72 — FPOS-019 scope) and a start_chroot_script comment (FPOS-006
+scope). NOT verified (impossible locally, B1/B2): actually downloading the
+images; end-to-end CI build (current chroot script still has Trixie
+incompatibilities — FPOS-006/007 — so CI may fail later in the build; the
+download+verify step itself is self-contained).
+
+Remaining risks: armhf sha256 single-source until first CI download; pinned
+release will age (bump deliberately, never revert to `_latest`); CustomPiOS
+ref itself still unpinned in CI (explicitly FPOS-010/D6 scope).
+
+Next up: FPOS-004 (arm64 default build configuration).
+
+### 2026-09-01 — FPOS-002: Branch base and repo hygiene — COMPLETE
+
+Summary: D7 in effect — branch `dev64` (base 6e773cc, confirmed = tag 0.14.0 via
+`git tag --points-at`), synced with origin/dev64 at 8194807. User committed and
+pushed AGENTS.md + CLAUDE.md + TODO.md themselves (commit 8194807), resolving the
+"commit the agent docs?" question. Local sandbox/editor dotfiles (.bashrc,
+.bash_profile, .gitconfig, .profile, .zprofile, .zshrc, .ripgreprc, .idea, .vscode,
+.claude/, .mcp.json, node_modules/) added to `.git/info/exclude` — per-clone local
+config, NOT a repo change — so `git status` is now empty. The tracked `.gitignore`
+was not touched (it already ignores graphify-out/ and variants except
+no-acceleration). No files were modified or deleted; no destructive git ops.
+
+Files changed: `.git/info/exclude` (local-only, untracked by design); TODO.md
+(status + this entry).
+Commands/tests run: `git branch --show-current` → dev64; `git log --oneline -3`;
+`git status --short` → empty after exclude; `git branch -vv` → dev64 == origin/dev64;
+`git tag --points-at 6e773cc` → 0.14.0.
+Decisions: agent docs live in the repo on dev64 (user's commit 8194807).
+Remaining risks: `.git/info/exclude` is per-clone — a fresh clone in a similar
+sandbox will show the dotfiles again until re-added. Acceptable; documented here.
+
+Next up: FPOS-003 (configurable, pinned base-image selection).
 
 ### 2026-09-01 — Process: mission brief codified into AGENTS.md (no FPOS item)
 
