@@ -117,7 +117,8 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
     by git; no-acceleration variant unaffected.
   - Expected verification: bash harness asserting variant config export; git ls-files.
 
-- [ ] FPOS-006: Trixie chroot-script compatibility — packages & apt hygiene
+- [x] FPOS-006: Trixie chroot-script compatibility — packages & apt hygiene —
+  DONE, see work log 2026-09-02.
   - Scope: in `src/modules/fullpageos/start_chroot_script`: replace `chromium-browser`
     with `chromium` (+ transitional fallback); drop `--force-yes` (removed/deprecated in
     modern apt); review removed-package list (scratch, oracle-java8-jdk era) for Trixie
@@ -324,6 +325,57 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   merge) → D7. FPOS-002 unblocked.
 
 ## Work log
+
+### 2026-09-02 — FPOS-006: Trixie chroot script — packages & apt hygiene — COMPLETE
+
+Summary (`src/modules/fullpageos/start_chroot_script` only): all three
+`--force-yes` dropped (tools line, chromium, x11vnc) → plain
+`apt-get install -y`. Chromium block now installs `chromium` (D4) with an
+`if ! … then chromium-browser` transitional fallback (set -e-safe, proven in
+harness). Emoji font: build-time `sudo -u pi wget` of NotoColorEmoji.ttf from
+GitHub main (unpinned network fetch into /home/pi) replaced by
+`apt-get install -y fonts-noto-color-emoji` (system-wide, pinned via apt).
+Legacy `remove_if_installed scratch…freepats` block deleted — base is pinned
+RPi OS **Lite** Trixie which ships none of those (several no longer exist in
+Debian at all); the final clean/autoremove step remains. ntp.conf appends
+removed (Trixie Lite has no /etc/ntp.conf reader; systemd-timesyncd with
+RPi OS defaults handles time sync — comment left in place).
+
+Package existence in trixie — every name the script installs verified via
+WebSearch-backed packages.debian.org results (direct fetch proxy-blocked,
+B2 now also covers packages.debian.org): chromium 139.x arm64 ✓,
+checkinstall 1.6.2+git20170426-5.1 ✓, libavahi-compat-libdnssd1 0.8-16 ✓
+(NO t64 rename in trixie), fbi 2.14-1 ✓, pulseaudio 17.0 ✓, x11vnc
+0.9.17-1 ✓, fonts-noto-color-emoji 2.051-0+deb13u1 ✓, php-cgi/php/
+php-common/lighttpd ✓, xdotool 3.20160805.1-5.1 ✓, feh ✓, xterm 398-1 ✓,
+expect 5.45.4-4 ✓, screen 4.9.1 ✓, avahi-daemon 0.8-16 ✓, git/vim ✓
+(arm64+armhf where checked).
+
+Files changed: `src/modules/fullpageos/start_chroot_script`, `TODO.md`.
+Commands/tests run: `bash -n` → OK; `grep -c force-yes` → 0; obsolete-token
+grep (ntp.conf/wget/NotoColorEmoji/oracle-java8/scratch/…) → only the new
+timesyncd comment matches; stub-apt-get harness → PASS both paths (chromium
+fails ⇒ fallback installs chromium-browser without tripping set -e;
+chromium succeeds ⇒ no fallback). shellcheck: 5 finding blocks remain, all
+pre-existing on untouched lines — SC1091 info (/common.sh not followed —
+expected for a CustomPiOS fragment), SC2081 (BASE_BOARD glob bug —
+explicitly FPOS-007 scope), SC2027+SC2086 (sed quoting in dashboard config
++ keyboard overrides — FPOS-007/020). The old block's SC2046 findings are
+gone; no new findings introduced.
+NOT verified (B1): actually running the script in a chroot — first real
+proof is the FPOS-010 CI build.
+
+Remaining risks: Trixie php 8.4 php-cgi under lighttpd sets
+"no new privileges" (broke RaspAP, which moved to php-fpm) — FullPageDashboard
+only reads/writes files so likely unaffected, but if the dashboard
+misbehaves in CI/HW-1, switch to php-fpm (note for FPOS-008/019).
+`pulseaudio` kept per 0.14.0 commit 6e773cc, but RPi OS Bookworm+ defaults
+to PipeWire — audio stack choice may need revisiting at HW-1 if audio is
+broken. `checkinstall` is legacy OctoPi heritage (unused at runtime) — kept
+since it exists in trixie; candidate for pruning in FPOS-019/021 review.
+
+Next up: FPOS-007 (Trixie chroot-script compatibility — users, paths, boot
+config).
 
 ### 2026-09-02 — FPOS-005: 32-bit (armhf) variant preserved — COMPLETE
 
