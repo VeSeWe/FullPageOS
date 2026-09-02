@@ -173,7 +173,9 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
     lines quoted in the work log; any hard-coded `pi` in the gui module
     recorded as an upstream gap + workaround decided.
 
-- [ ] FPOS-009: Architecture-specific artifact naming
+- [x] FPOS-009: Architecture-specific artifact naming — DONE, see work log
+  2026-09-02. New `src/get_image_name` derives the D9 name from config chain
+  + built-image filename with a mismatch abort; CI uses it.
   - Scope: implement P3 naming in CI copy/zip step and any release tooling; ensure name
     derives from actual build config (BASE_ARCH + variant), not hard-coded strings.
   - Acceptance criteria: an armhf build physically cannot produce an artifact named
@@ -346,6 +348,58 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   merge) → D7. FPOS-002 unblocked.
 
 ## Work log
+
+### 2026-09-02 — FPOS-009: architecture-specific artifact naming — COMPLETE
+
+Summary: new versioned script `src/get_image_name` prints the D9 artifact
+base name `FullPageOS-<codename>-<arch>[-docker]-<version>` (artifact =
+`<name>.img.gz`). It derives every variable part from the build itself and
+cross-checks two independent sources, failing loudly on disagreement:
+(1) config chain sourced in build order (`src/config` → `config.local` if
+present → `src/variants/<variant>/config`) gives BASE_ARCH (mapped
+arm64/aarch64→arm64, armv7l/armhf→armhf), DIST_VERSION, and the `-docker`
+suffix (iff MODULES contains `fullpageos-docker`, D5 — so future docker
+variants name themselves with zero CI changes); (2) the built image's own
+filename (`…-raspios-<codename>-<arch>-lite.img`, found in the CustomPiOS
+workspace dir — `workspace-<variant>` if present, else `workspace`; or via
+explicit `FULLPAGEOS_IMAGE=<path>`) gives codename + arch. Arch mismatch
+between (1) and (2) aborts ⇒ an armhf build physically cannot be labeled
+arm64. `--image-path` mode prints the discovered image path so the CI copy
+step copies exactly the file the name was derived from (no second glob to
+drift). Prefix is literal `FullPageOS` per D9 (DIST_NAME keeps its
+historical `FullpageOS` spelling for CustomPiOS-facing uses — not changed,
+behavior risk). CI `main.yml`: `Copy Output`+`Zip Output`+upload replaced
+by one `Name and Compress Output` step (id: artifact) calling the script,
+gzip to `${NAME}.img.gz`, name exported via `$GITHUB_OUTPUT`; upload-
+artifact name/path use `steps.artifact.outputs.name`. `build.img.gz` is
+gone from the workflow.
+
+Files changed: `src/get_image_name` (new, mode 755),
+`.github/workflows/main.yml`, `TODO.md`.
+Commands/tests run: `bash -n` + `shellcheck -s bash src/get_image_name` →
+clean. 13-case TMPDIR harness (src tree copied, fake images) → 13/13 PASS:
+default arm64 name; `--image-path`; armhf variant name; **armhf-variant +
+arm64-image mismatch aborts** (core acceptance); config.local sourced and
+mismatch still caught; docker-MODULES ⇒ `-docker` suffix
+(FullPageOS-trixie-arm64-docker-0.14.0); variant without own workspace
+falls back to `workspace/`; two images abort; zero images abort; unknown
+variant aborts; FULLPAGEOS_IMAGE override (bookworm filename ⇒ bookworm
+codename — name tracks the real base); unparseable glob-hit and
+FULLPAGEOS_IMAGE names abort. Workflow YAML parsed with yq (9 steps);
+extracted inline CI script shellcheck-clean. `git check-ignore` → script
+not ignored; `git status` shows only intended files.
+NOT verified (B1/B2): a real CI run of the new step (first FPOS-010 run is
+the gate) and CustomPiOS's `workspace-<variant>` dir convention (search-
+recalled, line-verification blocked by B2) — mitigated by the fallback to
+`workspace/` plus loud failure if no image is found either way.
+
+Remaining risks: if CustomPiOS renames the extracted base image or drops
+the `-lite` suffix in a future base release, the glob/regex fails loudly
+(fix is one pattern); rpi-imager metadata naming untouched (FPOS-019
+scope); version stays 0.14.0 until a deliberate bump (D9 example shows
+0.15.0 — bump is a release decision, not naming logic).
+
+Next up: FPOS-010 (CI matrix for 32-bit and 64-bit standard images).
 
 ### 2026-09-02 — FPOS-008: kiosk startup on Trixie/X11 — COMPLETE (scripts+design); FPOS-008b split out
 

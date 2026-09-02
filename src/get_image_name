@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# get_image_name — print the artifact base name for a finished build (D9):
+#
+#   FullPageOS-<debian_codename>-<arch>[-docker]-<version>
+#   e.g. FullPageOS-trixie-arm64-0.14.0   (final artifact: <name>.img.gz)
+#
+# Usage:
+#   ./get_image_name [--image-path] [<variant>]
+#
+#     <variant>      the same argument passed to ./build_dist (empty for the
+#                    default build). Sources src/config, then config.local
+#                    (if present), then the variant's config — the explicit
+#                    variant selector wins, mirroring the build.
+#     --image-path   print the path of the built image instead of the name,
+#                    so callers copy exactly the file the name derives from.
+#
+# The image may also be given explicitly via FULLPAGEOS_IMAGE=<path>.
+#
+# Codename and arch are parsed from the built base image's filename
+# (…-raspios-<codename>-<arch>-lite.img) and cross-checked against the
+# BASE_ARCH the config chain resolves to; any mismatch aborts, so a build
+# can never be labeled with an arch it was not built from.
+set -euo pipefail
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+die() { echo "get_image_name: $*" >&2; exit 1; }
+
+MODE=name
+if [ "${1:-}" = "--image-path" ]; then
+    MODE=path
+    shift
+fi
+VARIANT="${1:-}"
+
+# shellcheck disable=SC1091
+source "${DIR}/config"
+# shellcheck disable=SC1091
+[ -f "${DIR}/config.local" ] && source "${DIR}/config.local"
+if [ -n "${VARIANT}" ]; then
+    [ -f "${DIR}/variants/${VARIANT}/config" ] \
+        || die "unknown variant '${VARIANT}' (no ${DIR}/variants/${VARIANT}/config)"
+    # shellcheck disable=SC1090
+    source "${DIR}/variants/${VARIANT}/config"
+fi
+
+# Locate the built image: FULLPAGEOS_IMAGE override, else the CustomPiOS
+# workspace (workspace-<variant> if present, else workspace).
+if [ -n "${FULLPAGEOS_IMAGE:-}" ]; then
+    [ -f "${FULLPAGEOS_IMAGE}" ] || die "FULLPAGEOS_IMAGE '${FULLPAGEOS_IMAGE}' not found"
+    IMG="${FULLPAGEOS_IMAGE}"
+else
+    WORKSPACE="${DIR}/workspace"
+    if [ -n "${VARIANT}" ] && [ -d "${DIR}/workspace-${VARIANT}" ]; then
+        WORKSPACE="${DIR}/workspace-${VARIANT}"
+    fi
+    [ -d "${WORKSPACE}" ] || die "workspace '${WORKSPACE}' not found — did the build run?"
+    shopt -s nullglob
+    imgs=( "${WORKSPACE}"/*-raspios-*-lite.img )
+    shopt -u nullglob
+    [ "${#imgs[@]}" -gt 0 ] || die "no *-raspios-*-lite.img in ${WORKSPACE}"
+    [ "${#imgs[@]}" -eq 1 ] \
+        || die "expected exactly one image in ${WORKSPACE}, found ${#imgs[@]}: ${imgs[*]}"
+    IMG="${imgs[0]}"
+fi
+
+IMG_BASENAME="$(basename "${IMG}")"
+if [[ "${IMG_BASENAME}" =~ -raspios-([a-z0-9]+)-(arm64|armhf)-lite\.img$ ]]; then
+    CODENAME="${BASH_REMATCH[1]}"
+    IMG_ARCH="${BASH_REMATCH[2]}"
+else
+    die "cannot parse codename/arch from image name '${IMG_BASENAME}'"
+fi
+
+case "${BASE_ARCH:-}" in
+    arm64|aarch64)  CONFIG_ARCH=arm64 ;;
+    armv7l|armhf)   CONFIG_ARCH=armhf ;;
+    *) die "unsupported BASE_ARCH '${BASE_ARCH:-}' (expected arm64/aarch64/armv7l/armhf)" ;;
+esac
+[ "${CONFIG_ARCH}" = "${IMG_ARCH}" ] \
+    || die "arch mismatch: BASE_ARCH resolves to '${CONFIG_ARCH}' but built image is '${IMG_ARCH}' (${IMG_BASENAME})"
+
+# Docker variants append the fullpageos-docker module to MODULES (D5).
+DOCKER_SUFFIX=""
+case "${MODULES:-}" in
+    *fullpageos-docker*) DOCKER_SUFFIX="-docker" ;;
+esac
+
+[ -n "${DIST_VERSION:-}" ] || die "DIST_VERSION is empty after sourcing config"
+
+# Prefix is the literal 'FullPageOS' per D9 (DIST_NAME keeps its historical
+# 'FullpageOS' spelling for CustomPiOS-facing uses).
+if [ "${MODE}" = path ]; then
+    printf '%s\n' "${IMG}"
+else
+    printf '%s\n' "FullPageOS-${CODENAME}-${IMG_ARCH}${DOCKER_SUFFIX}-${DIST_VERSION}"
+fi
