@@ -100,7 +100,8 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   - Expected verification: static review; grep for `raspios_lite_armhf_latest`,
     `raspbian` remnants; shellcheck on changed files.
 
-- [ ] FPOS-004: arm64 build configuration (default build)
+- [x] FPOS-004: arm64 build configuration (default build) — DONE, see work
+  log 2026-09-02.
   - Scope: implement P2 — default config targets `BASE_ARCH=arm64` with matching image
     glob; ensure `DIST_NAME`/version vars unchanged where possible.
   - Acceptance criteria: config resolves BASE_ARCH=arm64 by default; armhf achievable
@@ -323,6 +324,50 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   merge) → D7. FPOS-002 unblocked.
 
 ## Work log
+
+### 2026-09-02 — FPOS-004: arm64 build configuration (default build) — COMPLETE
+
+Summary: `src/config` now exports `BASE_ARCH=arm64` (D8) with a comment that
+the 32-bit build is the upcoming `armhf` variant which overrides it —
+CustomPiOS's base module derives the `*-raspios-*-arm64-*` image glob from
+BASE_ARCH (verified during FPOS-001 discovery via WebSearch; direct GitHub
+line-verification still blocked, B2 — proxy 502 re-confirmed today).
+`DIST_NAME`/`DIST_VERSION`/`MODULES`/`GUI_STARTUP_SCRIPT` unchanged. Default
+path de-armhf'd: CI download step now fetches/verifies
+`FULLPAGEOS_IMAGE_URL_ARM64` (+_SHA256_ARM64) — CI's existing
+`qemu-user-static` dep already provides qemu-aarch64-static, and the copy
+glob `*-raspios-*-lite.img` still matches
+`2025-12-04-raspios-trixie-arm64-lite.img`; README.rst build snippet flipped
+to the ARM64 vars (armhf documented as the 32-bit alternative) and the
+requirement line now says qemu-user-static (aarch64 for default 64-bit,
+arm for 32-bit); `src/image/README` glob sentence updated to mention
+BASE_ARCH-driven arch-specific matching. Full CI matrix remains FPOS-010.
+
+Files changed: `src/config`, `.github/workflows/main.yml`, `README.rst`,
+`src/image/README`, `TODO.md`.
+Commands/tests run: bash harness 1 (env -i, source src/config) → PASS:
+BASE_ARCH=arm64 exported; DIST_NAME=FullpageOS, DIST_VERSION=0.14.0, MODULES
+string and GUI_STARTUP_SCRIPT byte-identical; no docker module in MODULES.
+Harness 2 (variant-style `BASE_ARCH=armv7l` assignment after sourcing
+src/config) → PASS — override works in bash sourcing order (partial signal:
+real dist-config→variant-config order lives in CustomPiOS, exercised for
+real in FPOS-005/010). `bash -n` + `shellcheck -s bash src/config` → clean.
+Workflow parsed with yq (10 steps intact); extracted download-step script
+shellcheck → only SC1091 info (sourced file not followed — expected, same
+as FPOS-003). `git grep -niE 'armhf|armv7' src/config
+.github/workflows/main.yml src/build_dist` → only comments and the pinned
+`FULLPAGEOS_*_ARMHF` variable definitions (kept deliberately for the armhf
+variant + docs); no functional armhf use left in the default path.
+NOT verified (B1/B2): an actual CustomPiOS run consuming BASE_ARCH=arm64
+end-to-end — that proof lands with the FPOS-010 CI build (and the chroot
+script still has known Trixie issues, FPOS-006/007, so a full CI build may
+fail beyond the image-selection stage).
+
+Remaining risks: CustomPiOS BASE_ARCH/glob behavior is search-verified, not
+line-verified (B2) — first FPOS-010 CI run is the hard gate; `aarch64` is
+also accepted by CustomPiOS but `arm64` is used consistently here.
+
+Next up: FPOS-005 (32-bit armhf variant preserved).
 
 ### 2026-09-01 — FPOS-003: Configurable, pinned base-image selection — COMPLETE
 

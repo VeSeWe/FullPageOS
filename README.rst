@@ -57,7 +57,7 @@ Developing
 Requirements
 ~~~~~~~~~~~~
 
-#. `qemu-arm-static <http://packages.debian.org/sid/qemu-user-static>`_
+#. `qemu-user-static <http://packages.debian.org/sid/qemu-user-static>`_ (provides qemu-aarch64-static for the default 64-bit build and qemu-arm-static for 32-bit)
 #. `CustomPiOS <https://github.com/guysoft/CustomPiOS>`_
 #. Downloaded `Raspberry Pi OS Lite <https://www.raspberrypi.com/software/operating-systems/>`_ image (Debian 13 "Trixie"; use the pinned release from ``src/config``, see ``src/image/README``).
 #. root privileges for chroot
@@ -79,10 +79,11 @@ You can build it by issuing the following commands::
     git clone https://github.com/guysoft/FullPageOS.git
     cd FullPageOS/src/image
     source ../config
-    # Pick the architecture you are building: FULLPAGEOS_IMAGE_URL_ARMHF
-    # (current default build) or FULLPAGEOS_IMAGE_URL_ARM64.
-    wget "$FULLPAGEOS_IMAGE_URL_ARMHF"
-    echo "$FULLPAGEOS_IMAGE_SHA256_ARMHF  $(basename "$FULLPAGEOS_IMAGE_URL_ARMHF")" | sha256sum -c
+    # The default build is 64-bit (arm64). For a 32-bit build use the
+    # FULLPAGEOS_IMAGE_URL_ARMHF / FULLPAGEOS_IMAGE_SHA256_ARMHF variables
+    # instead (and build the armhf variant).
+    wget "$FULLPAGEOS_IMAGE_URL_ARM64"
+    echo "$FULLPAGEOS_IMAGE_SHA256_ARM64  $(basename "$FULLPAGEOS_IMAGE_URL_ARM64")" | sha256sum -c
     cd ..
     ../../CustomPiOS/src/update-custompios-paths
     sudo modprobe loop

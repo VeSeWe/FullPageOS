@@ -23,13 +23,13 @@ jobs:
         submodules: true
     # Pinned dated release + sha256 from src/config (D6) — no *_latest.
     # Arch matrix (arm64/armhf) lands with FPOS-010; until then this
-    # builds the current default (armhf).
+    # builds the default (arm64, D8).
     - name: Download Raspberry Pi OS image (pinned)
       run: |
         cd repository/src/image || exit 1
         source ../config
-        wget -q "$FULLPAGEOS_IMAGE_URL_ARMHF"
-        echo "$FULLPAGEOS_IMAGE_SHA256_ARMHF  $(basename "$FULLPAGEOS_IMAGE_URL_ARMHF")" | sha256sum -c
+        wget -q "$FULLPAGEOS_IMAGE_URL_ARM64"
+        echo "$FULLPAGEOS_IMAGE_SHA256_ARM64  $(basename "$FULLPAGEOS_IMAGE_URL_ARM64")" | sha256sum -c
     - name: Update CustomPiOS Paths
       run: cd repository/src && ../../CustomPiOS/src/update-custompios-paths
     - name: Build Image

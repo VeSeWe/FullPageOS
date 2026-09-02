@@ -2,6 +2,11 @@ export DIST_NAME=FullpageOS
 export DIST_VERSION=0.14.0
 export MODULES="base(raspicam, network, disable-services(gui(fullpageos), usage-statistics))"
 
+# Default build is 64-bit (D8): CustomPiOS selects the *-raspios-*-arm64-*
+# base image glob from this. The 32-bit build is the `armhf` variant
+# (src/variants/armhf), which overrides BASE_ARCH — don't change it here.
+export BASE_ARCH=arm64
+
 # Pinned base images (D6): dated Raspberry Pi OS Lite (Debian 13 "Trixie")
 # releases with sha256 of the .img.xz — never an undated *_latest alias.
 # CI downloads and verifies against these; for local builds see

@@ -15,9 +15,10 @@ are building and verify it, e.g.:
 also published next to each image as <image-url>.sha256.)
 
 If not otherwise specified, CustomPiOS uses the most recent Raspberry Pi
-OS file matching *-raspios*.{zip,7z,xz} in this directory, so keep only
-the image for the architecture you are building — or set BASE_ZIP_IMG
-(via src/config.local or the environment) to the exact file to use.
+OS file in this directory that matches the build architecture (BASE_ARCH,
+default arm64 → *-raspios-*-arm64-* images), so keep only the image for
+the architecture you are building — or set BASE_ZIP_IMG (via
+src/config.local or the environment) to the exact file to use.
 
 Always pin a dated release plus its sha256; never build from an undated
 *_latest download.
