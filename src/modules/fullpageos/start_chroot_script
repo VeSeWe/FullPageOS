@@ -19,7 +19,7 @@ apt-get update
 if [ "$FULLPAGEOS_CUSTOM_SPLASHSCREEN" == "yes" ]
 then
     apt-get install -y fbi
-    if [ "${BASE_BOARD}" == raspberrypi* ]; then
+    if [[ "${BASE_BOARD}" == raspberrypi* ]]; then
         sed -i 's/$/ logo.nologo consoleblank=0 loglevel=0 quiet/' /"${BASE_BOOT_MOUNT_PATH}"/cmdline.txt
     fi
     echo "disable_splash=1" >> /"${BASE_BOOT_MOUNT_PATH}"/config.txt
@@ -48,18 +48,18 @@ then
     #service lighttpd force-reload
     chown -R www-data:www-data /var/www/html
     chmod 775 /var/www/html
-    usermod -a -G www-data pi
+    usermod -a -G www-data "${BASE_USER}"
     systemctl enable clear_lighttpd_cache.service
     pushd /var/www/html
         #Put git clones in place
         if [ "$FULLPAGEOS_INCLUDE_DASHBOARD" == "yes" ]
         then
         gitclone FULLPAGEOS_DASHBOARD_REPO FullPageDashboard
-            chown -R pi:pi FullPageDashboard
+            chown -R "${BASE_USER}":"${BASE_USER}" FullPageDashboard
             chown -R www-data:www-data FullPageDashboard
             chmod 775 FullPageDashboard
             pushd FullPageDashboard
-                sed -i "s@'INIT_URL_PATH', __DIR__ . '/init.txt'@'INIT_URL_PATH', '/"${BASE_BOOT_MOUNT_PATH}"/fullpagedashboard.txt'@g" config.php
+                sed -i "s@'INIT_URL_PATH', __DIR__ . '/init.txt'@'INIT_URL_PATH', '/${BASE_BOOT_MOUNT_PATH}/fullpagedashboard.txt'@g" config.php
             popd
         fi
         #Set Welcome screen
@@ -111,8 +111,8 @@ apt-get install -y fonts-noto-color-emoji
 #override password
 if [ "$FULLPAGEOS_OVERRIDE_PASSWORD" != "default" ]
 then
-    #root password
-    echo "pi:$FULLPAGEOS_OVERRIDE_PASSWORD" | chpasswd
+    #user password
+    echo "${BASE_USER}:$FULLPAGEOS_OVERRIDE_PASSWORD" | chpasswd
 fi
 
 #Setup x11vnc
@@ -126,11 +126,11 @@ then
     # Set x11vnc password
     if [ "$FULLPAGEOS_OVERRIDE_PASSWORD" != "default" ]
     then
-        sudo -u pi /opt/custompios/scripts/setX11vncPass "$FULLPAGEOS_OVERRIDE_PASSWORD"
+        sudo -u "${BASE_USER}" /opt/custompios/scripts/setX11vncPass "$FULLPAGEOS_OVERRIDE_PASSWORD"
         sync
         if [ ! -f /opt/custompios/vnc/passwd ] || [ ! -s /opt/custompios/vnc/passwd ]; then
           echo "/opt/custompios/vnc/passwd was not created. Trying again."
-          sudo -u pi /opt/custompios/scripts/setX11vncPass "$FULLPAGEOS_OVERRIDE_PASSWORD"
+          sudo -u "${BASE_USER}" /opt/custompios/scripts/setX11vncPass "$FULLPAGEOS_OVERRIDE_PASSWORD"
           sync
           if [ ! -f /opt/custompios/vnc/passwd ] || [ ! -s /opt/custompios/vnc/passwd ]; then
             echo "/opt/custompios/vnc/passwd was not created again. Giving up."
@@ -139,11 +139,11 @@ then
            fi
         fi
     else
-        sudo -u pi /opt/custompios/scripts/setX11vncPass raspberry
+        sudo -u "${BASE_USER}" /opt/custompios/scripts/setX11vncPass raspberry
         sync
         if [ ! -f /opt/custompios/vnc/passwd ] || [ ! -s /opt/custompios/vnc/passwd ]; then
           echo "/opt/custompios/vnc/passwd was not created. Trying again."
-          sudo -u pi /opt/custompios/scripts/setX11vncPass raspberry
+          sudo -u "${BASE_USER}" /opt/custompios/scripts/setX11vncPass raspberry
           sync
           if [ ! -f /opt/custompios/vnc/passwd ] || [ ! -s /opt/custompios/vnc/passwd ]; then
             echo "/opt/custompios/vnc/passwd was not created again. Giving up."

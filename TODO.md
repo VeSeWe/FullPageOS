@@ -131,7 +131,8 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   - Expected verification: shellcheck + bash -n; package-name existence check; CI build
     (FPOS-010) is the end-to-end gate.
 
-- [ ] FPOS-007: Trixie chroot-script compatibility — users, paths, boot config
+- [x] FPOS-007: Trixie chroot-script compatibility — users, paths, boot config —
+  DONE, see work log 2026-09-02.
   - Scope: replace hard-coded `pi` with `${BASE_USER}` (usermod, chown, sudo -u,
     /home/pi, chpasswd) throughout module scripts; fix `[ "${BASE_BOARD}" == raspberrypi* ]`
     glob bug (SC2081 — the cmdline.txt splash edit silently never runs today); confirm
@@ -325,6 +326,53 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   merge) → D7. FPOS-002 unblocked.
 
 ## Work log
+
+### 2026-09-02 — FPOS-007: Trixie chroot script — users, paths, boot config — COMPLETE
+
+Summary: hard-coded `pi` replaced with quoted `${BASE_USER}` in all six
+functional sites of `start_chroot_script` (usermod www-data group add,
+FullPageDashboard chown, chpasswd, 4× `sudo -u` setX11vncPass); the stale
+`#root password` comment corrected to `#user password` (it sets the user's
+password). `BASE_BOARD` test fixed: `[ "${BASE_BOARD}" == raspberrypi* ]` →
+`[[ … == raspberrypi* ]]` — harness proved the old form NEVER matched (even
+for exact "raspberrypi", it compared against the literal string
+"raspberrypi*"), so this REACTIVATES the quiet-splash cmdline.txt edit
+(` logo.nologo consoleblank=0 loglevel=0 quiet` appended) on Raspberry Pi
+builds — expect visibly quieter boot at HW-1. Dashboard INIT_URL_PATH sed
+requoted (var inside one double-quoted string, behavior-identical) —
+clears SC2027/SC2086 on that boot-path line. Boot-path audit: all chroot
+boot-partition writes use `${BASE_BOOT_MOUNT_PATH}` (unpack, cmdline.txt,
+config.txt, dashboard sed, check_for_httpd) ✓; runtime files correctly
+hardcode /boot/firmware (get_url:4, run_onepageos:9,
+splashscreen.service:7 — right for Bookworm+/Trixie) — no changes needed.
+Module `config` splash comment fixed: pointed at nonexistent
+`filesystem/home/pi/media/splash.png`; real location is
+`filesystem/boot/splash.png` → shown from /boot/firmware/splash.png.
+
+Files changed: `src/modules/fullpageos/start_chroot_script`,
+`src/modules/fullpageos/config`, `TODO.md`.
+Commands/tests run: glob harness old-vs-new over
+raspberrypi/raspberrypi3/raspberrypi64/lepotato → old form F/F/F/F (bug
+confirmed), new form T/T/T/F (fix + non-Pi correctly excluded); `bash -n`
+OK on both changed files; shellcheck: SC2081 and SC2027 gone, remaining
+only SC1091 (info — /common.sh, expected) + SC2086 ×2 on untouched
+keyboard-override lines (FPOS-020 scope) ⇒ changed lines clean;
+acceptance grep `\bpi\b` over the module → only the two commented-out
+legacy rc.local lines (justified back-compat docs). NOT verified (B1):
+chroot execution with real BASE_USER/BASE_BOARD values from CustomPiOS —
+FPOS-010 CI is the gate.
+
+Remaining risks: exact BASE_BOARD values on the pinned CustomPiOS ref
+can't be line-verified from here (B2) — if a value doesn't start with
+"raspberrypi", the cmdline edit stays off (fails safe, same as today's
+broken behavior). The double chown of FullPageDashboard (BASE_USER then
+immediately www-data — the second wins) is preserved upstream behavior;
+candidate for cleanup in a later task, noted not changed. Reactivated
+cmdline edit appends to cmdline.txt once per build — single-line file,
+idempotent per image, but combined with `disable_splash=1` it changes boot
+visuals vs 0.14.0 images; verify at HW-1.
+
+Next up: FPOS-008 (kiosk startup on Trixie/X11 verified in design).
 
 ### 2026-09-02 — FPOS-006: Trixie chroot script — packages & apt hygiene — COMPLETE
 
