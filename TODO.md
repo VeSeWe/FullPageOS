@@ -143,7 +143,9 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
     changed lines.
   - Expected verification: shellcheck; targeted grep assertions.
 
-- [ ] FPOS-008: Kiosk startup on Trixie/X11 verified in design
+- [x] FPOS-008: Kiosk startup on Trixie/X11 verified in design — DONE for
+  everything provable from here (scripts + mechanism + package availability),
+  see work log 2026-09-02; line-level gui-module proof split into FPOS-008b.
   - Scope: verify CustomPiOS `gui` module (devel) against Trixie Lite: lightdm/xserver
     package names, autologin, `GUI_STARTUP_SCRIPT` substitution, `BASE_USER` handling
     (older gui module hard-coded /home/pi — check devel); adjust FullPageOS scripts
@@ -155,6 +157,21 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
     upstream CustomPiOS gaps recorded as blockers if found.
   - Expected verification: inspection of pinned CustomPiOS ref (requires GitHub access
     — see Blockers B2; CI fallback available); shellcheck.
+
+- [!] FPOS-008b: gui-module line-level verification (split from FPOS-008;
+  blocked on B2)
+  - Scope: line-verify, on the CustomPiOS ref pinned in FPOS-010: the gui
+    module's package-install list (lightdm/xserver-xorg names), lightdm
+    autologin config (BASE_USER vs hard-coded pi/`/home/pi`), and the
+    GUI_INCLUDE_ACCELERATION default/mechanism.
+  - How to unblock (either): (a) user grants GitHub egress
+    (github.com/raw.githubusercontent.com) so the pinned ref can be read
+    directly; or (b) first FPOS-010 CI run — build_dist runs `bash -x`, so
+    the log shows the gui module's apt-get lines and autologin sed commands;
+    read them from the CI log and record here.
+  - Acceptance criteria: each of the three facts confirmed with file/log
+    lines quoted in the work log; any hard-coded `pi` in the gui module
+    recorded as an upstream gap + workaround decided.
 
 - [ ] FPOS-009: Architecture-specific artifact naming
   - Scope: implement P3 naming in CI copy/zip step and any release tooling; ensure name
@@ -316,7 +333,10 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   inspection in GitHub Actions; boot/Docker runtime proof at HW gates. (Container is
   itself aarch64, which helps for arm64-targeted script sanity runs.)
 - B2 (environment, current): github.com / raw.githubusercontent.com / docs.docker.com
-  unreachable from sandbox (proxy 502/refused); WebSearch works. Impact: cannot clone
+  unreachable from sandbox (proxy 502/refused); WebSearch works. 2026-09-02:
+  packages.debian.org and cdn.jsdelivr.net (GitHub CDN mirror) also blocked
+  (sandbox allow-list denials) — Debian package facts and upstream file
+  contents must come via WebSearch snippets or CI logs. Impact: cannot clone
   CustomPiOS locally to pin a ref and line-verify the gui/base modules (FPOS-008, D6).
   Mitigation: verified key facts via search (BASE_ARCH=arm64 support, module system,
   docker-module deficiencies); ask user to allow GitHub egress OR verify module
@@ -326,6 +346,61 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   merge) → D7. FPOS-002 unblocked.
 
 ## Work log
+
+### 2026-09-02 — FPOS-008: kiosk startup on Trixie/X11 — COMPLETE (scripts+design); FPOS-008b split out
+
+Script changes (runtime, module `fullpageos`):
+- `start_chromium_browser`: browser binary resolved at runtime —
+  `command -v chromium` ⇒ `chromium`, else `chromium-browser` (D4 fallback);
+  both invocation lines (live kiosk line and dead signage-mode example) use
+  `"$BROWSER"`; `--app=$( … )` now quoted (SC2046 on touched lines fixed);
+  signage-mode crash-refresh path corrected from nonexistent
+  `/home/<uid1000>/scripts/refresh` to `/opt/custompios/scripts/refresh`.
+- `reload_fullpageos_txt`: `killall /usr/lib/chromium/chromium` (the #602
+  fix, kept as primary — local git shows c1d1e17 changed it from the old
+  chromium-browser path, proving Debian-style layout on current RPi OS)
+  with fallbacks `killall chromium` then `killall chromium-browser`.
+- `fullscreen`/`refresh`/`safe_refresh`: NO change needed — xdotool search
+  patterns are case-insensitive POSIX EREs per upstream docs/man
+  (jordansissel/xdotool xdotool.pod: "Matches are case-insensitive"), so
+  `--class chromium` matches Debian chromium's WM_CLASS "Chromium" exactly
+  as it matched legacy "Chromium-browser". Recorded as verified design.
+
+Design verification (gui module / Trixie fit — file-level where possible):
+- Startup chain confirmed with repo-path evidence (FullPageOS discussion
+  #547 + module tree): lightdm autologin → XDG session
+  `usr/share/xsessions/guisession.desktop` (in gui module filesystem,
+  root_init) with Exec → `/opt/custompios/scripts/start_gui` →
+  gui `end_chroot_script` runs
+  `sed -i "s@GUI_SESSION_PLACEHOLDEFR@${GUI_STARTUP_SCRIPT}@g" …/start_gui`
+  ⇒ our `GUI_STARTUP_SCRIPT=/opt/custompios/scripts/run_onepageos` slots in
+  unchanged.
+- Trixie package availability: lightdm 1.32.0-6+b2, xserver-xorg 1:7.7+24,
+  xserver-xorg-core 2:21.1.16-1.3 — all present in trixie (D3's X11 stack
+  installable).
+- NOT provable from sandbox (B2; packages.debian.org + cdn.jsdelivr.net now
+  also blocked — B2 updated): gui module's exact apt package list, autologin
+  user handling (BASE_USER vs hard-coded pi), GUI_INCLUDE_ACCELERATION
+  default on the ref we'll pin. Split into FPOS-008b [!], unblockable via
+  GitHub egress or the first FPOS-010 CI log (build runs bash -x).
+
+Files changed: `…/scripts/start_chromium_browser`,
+`…/scripts/reload_fullpageos_txt`, `TODO.md`.
+Commands/tests run: `bash -n` OK both; shellcheck: reload_fullpageos_txt
+clean; start_chromium_browser — all remaining findings (SC2317/SC2155/
+SC2162/SC2006) sit in the pre-existing dead signage-mode block after
+`exit;`, untouched (FPOS-020 scope); changed lines clean. PATH-stub
+harness: with `chromium` present → chromium runs; without → fallback
+chromium-browser runs. File mode of rewritten reload_fullpageos_txt
+still 755. `git show c1d1e17` → documented the #602 path change.
+NOT verified (B1): actual kiosk boot — that's HW-1.
+
+Remaining risks: Chromium 139 tolerates the legacy flag set (unknown flags
+warn, don't fail) but flag review is worth a pass at HW-1;
+signage-mode block remains dead-by-design documentation code. FPOS-008b
+open for the three gui-module facts.
+
+Next up: FPOS-009 (architecture-specific artifact naming).
 
 ### 2026-09-02 — FPOS-007: Trixie chroot script — users, paths, boot config — COMPLETE
 

@@ -1,2 +1,7 @@
 #!/bin/bash
-killall /usr/lib/chromium/chromium
+# Stop the browser; the kiosk session restarts it and re-reads fullpageos.txt.
+# Debian and Raspberry Pi OS (Bookworm+) run the real binary from
+# /usr/lib/chromium/chromium; the name fallbacks cover other chromium builds.
+killall /usr/lib/chromium/chromium 2> /dev/null \
+    || killall chromium 2> /dev/null \
+    || killall chromium-browser

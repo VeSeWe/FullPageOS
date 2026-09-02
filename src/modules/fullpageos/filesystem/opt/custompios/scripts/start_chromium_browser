@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# On Trixie the browser is `chromium`; older Raspberry Pi OS releases
+# shipped it as `chromium-browser`.
+if command -v chromium > /dev/null 2>&1; then
+    BROWSER=chromium
+else
+    BROWSER=chromium-browser
+fi
+
 flags=(
    --kiosk
    --touch-events=enabled
@@ -14,12 +22,12 @@ flags=(
 )
 
 # Standard behavior - runs chromium
-chromium-browser "${flags[@]}" --app=$(/opt/custompios/scripts/get_url)
+"$BROWSER" "${flags[@]}" --app="$(/opt/custompios/scripts/get_url)"
 exit;
 
 # Remove the two lines above to enable signage mode - refresh the browser whenever errors are seen in log
 
-chromium-browser --enable-logging --log-level=2 --v=0 "${flags[@]}" --app=$(/opt/custompios/scripts/get_url) &
+"$BROWSER" --enable-logging --log-level=2 --v=0 "${flags[@]}" --app="$(/opt/custompios/scripts/get_url)" &
 
 export logfile="/home/$(id -nu 1000)/.config/chromium/chrome_debug.log"
 
@@ -29,6 +37,6 @@ tail -n 0 -F "$logfile" | while read LOGLINE &> /dev/null; do
 
    echo "Refreshing after crash"
    echo "Restarting at `date` after a reported crash. Logline: ${LOGLINE}" >> /tmp/crashlog
-   [[ ("${LOGLINE}" == *"ERROR"*) || ("${LOGLINE}" == *"FATAL"*) ]] && /home/$(id -nu 1000)/scripts/refresh
+   [[ ("${LOGLINE}" == *"ERROR"*) || ("${LOGLINE}" == *"FATAL"*) ]] && /opt/custompios/scripts/refresh
 
 done
