@@ -8,5 +8,6 @@ src/workspace/*
 src/workspace*/*
 src/variants/*
 !src/variants/no-acceleration
+!src/variants/armhf
 
 graphify-out/

@@ -109,7 +109,7 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   - Expected verification: source config in a bash harness and assert exported vars;
     shellcheck.
 
-- [ ] FPOS-005: 32-bit (armhf) variant preserved
+- [x] FPOS-005: 32-bit (armhf) variant preserved — DONE, see work log 2026-09-02.
   - Scope: add `src/variants/armhf/config` (BASE_ARCH=armv7l + armhf image pattern);
     update `.gitignore` (currently ignores `src/variants/*` except `no-acceleration`)
     to track new variants.
@@ -324,6 +324,40 @@ Docker's official Debian repo advertises trixie + both `arm64` and `armhf`
   merge) → D7. FPOS-002 unblocked.
 
 ## Work log
+
+### 2026-09-02 — FPOS-005: 32-bit (armhf) variant preserved — COMPLETE
+
+Summary: added `src/variants/armhf/config` — a one-setting variant
+(`export BASE_ARCH=armv7l`, D8 naming) with a header comment pointing at the
+pinned `FULLPAGEOS_IMAGE_URL_ARMHF` image and the `./build_dist armhf`
+invocation. `.gitignore` gained `!src/variants/armhf` next to the existing
+`!src/variants/no-acceleration` (same proven re-include pattern; all other
+variant dirs stay ignored). `export` used deliberately (no-acceleration uses
+a plain assignment, but BASE_ARCH must reach CustomPiOS child processes and
+this stays correct even if src/config ever stops exporting it).
+
+Files changed: `src/variants/armhf/config` (new), `.gitignore`, `TODO.md`.
+Commands/tests run: env -i harness sourcing `src/config` →
+`src/variants/armhf/config` (simulating CustomPiOS dist→variant order) →
+PASS: BASE_ARCH=armv7l and visible in a child process (export verified);
+DIST_NAME/DIST_VERSION/MODULES byte-identical, no docker module. Sourcing
+`no-acceleration/config` on top → PASS: GUI_INCLUDE_ACCELERATION=no,
+variant unaffected/composable. `bash -n` + `shellcheck -s bash` on the new
+config → clean. `git check-ignore`: armhf and no-acceleration
+tracked-eligible, hypothetical `src/variants/somefuture/config` still
+IGNORED. `git status` shows only `.gitignore` + the new variant dir.
+NOT verified (B1/B2): a real `./build_dist armhf` run (CustomPiOS variant
+sourcing + armhf base-image selection end-to-end) — proof lands with the
+FPOS-010 CI matrix row.
+
+Remaining risks: whether CustomPiOS's armv7l image glob excludes arm64
+images when both sit in src/image is unverified (B2) — mitigated by the
+"keep only one image" rule in src/image/README plus the `BASE_ZIP_IMG`
+exact-file override, and CI downloads exactly one image per job. Real
+variant-sourcing order is CustomPiOS's; simulated locally only.
+
+Next up: FPOS-006 (Trixie chroot-script compatibility — packages & apt
+hygiene).
 
 ### 2026-09-02 — FPOS-004: arm64 build configuration (default build) — COMPLETE
 

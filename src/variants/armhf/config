@@ -1,0 +1,6 @@
+# 32-bit build variant (D8): Raspberry Pi OS Lite armhf on Pi 3/4/5.
+# Overrides the arm64 default from src/config; CustomPiOS selects the
+# armhf base image from BASE_ARCH. Put the pinned armhf image
+# (FULLPAGEOS_IMAGE_URL_ARMHF, see src/config and src/image/README) in
+# src/image, then build with: ./build_dist armhf
+export BASE_ARCH=armv7l
